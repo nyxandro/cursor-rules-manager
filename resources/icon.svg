@@ -1,0 +1,41 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="icon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f8f9fa;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bg)" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Main icon - Cursor with sync arrows -->
+  <g fill="url(#icon)">
+    <!-- Cursor body -->
+    <path d="M45 35 L85 35 L75 55 L65 45 L45 65 Z" fill="url(#icon)"/>
+    
+    <!-- Sync arrows -->
+    <g transform="translate(64, 64)">
+      <!-- Left arrow -->
+      <path d="M-25 -15 L-35 -15 L-30 -20 M-35 -15 L-30 -10" stroke="url(#icon)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      
+      <!-- Right arrow -->
+      <path d="M25 -15 L35 -15 L30 -10 M35 -15 L30 -20" stroke="url(#icon)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      
+      <!-- Bottom arrow -->
+      <path d="M-5 25 L-5 35 L0 30 M-5 35 L10 30" stroke="url(#icon)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    
+    <!-- Rules lines -->
+    <g stroke="url(#icon)" stroke-width="2" fill="none">
+      <line x1="35" y1="75" x2="93" y2="75"/>
+      <line x1="35" y1="82" x2="85" y2="82"/>
+      <line x1="35" y1="89" x2="78" y2="89"/>
+      <line x1="35" y1="96" x2="90" y2="96"/>
+    </g>
+  </g>
+</svg> 

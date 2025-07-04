@@ -1,0 +1,132 @@
+{
+  "name": "cursor-rules-manager",
+  "displayName": "Cursor Rules Manager",
+  "description": "Управление синхронизацией правил Cursor AI с GitHub репозиторием",
+  "version": "1.0.2",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nyxandro/cursor-rules-manager.git"
+  },
+  "keywords": [
+    "cursor",
+    "ai",
+    "rules",
+    "sync",
+    "github",
+    "vscode-extension"
+  ],
+  "author": "nyxandro",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursor-rules-manager.syncRules",
+        "title": "Синхронизировать правила Cursor",
+        "category": "Cursor Rules"
+      },
+      {
+        "command": "cursor-rules-manager.pullRules",
+        "title": "Загрузить правила из GitHub",
+        "category": "Cursor Rules"
+      },
+      {
+        "command": "cursor-rules-manager.pushRules",
+        "title": "Отправить правила в GitHub",
+        "category": "Cursor Rules"
+      },
+      {
+        "command": "cursor-rules-manager.showStatus",
+        "title": "Показать статус правил",
+        "category": "Cursor Rules"
+      }
+    ],
+    "configuration": {
+      "title": "Cursor Rules Manager",
+      "properties": {
+        "cursorRulesManager.rulesRepoUrl": {
+          "type": "string",
+          "default": "https://github.com/nyxandro/my-cursor-rules.git",
+          "description": "URL репозитория с правилами Cursor"
+        },
+        "cursorRulesManager.globalRulesPath": {
+          "type": "string",
+          "default": ".cursor/rules",
+          "description": "Путь к глобальным правилам"
+        },
+        "cursorRulesManager.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "my-project"
+          ],
+          "description": "Папки с правилами, которые не синхронизируются"
+        },
+        "cursorRulesManager.autoSyncInterval": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "description": "Интервал автосинхронизации правил (в минутах)"
+        },
+        "cursorRulesManager.showAutoSyncNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Показывать уведомления при автосинхронизации"
+        },
+        "cursorRulesManager.notificationTimeout": {
+          "type": "number",
+          "default": 3000,
+          "minimum": 1000,
+          "maximum": 10000,
+          "description": "Время отображения уведомлений в миллисекундах (1000-10000)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "mocha out/test/extension.test.js",
+    "build": "npm run compile && npm run lint && npm test",
+    "package": "vsce package --no-yarn",
+    "clean": "rm -rf out test-workspace .vscode-test",
+    "dev": "npm run watch",
+    "version:patch": "node scripts/version.js && npm run build && npm run package",
+    "version:minor": "node scripts/version.js && npm run build && npm run package",
+    "version:major": "node scripts/version.js && npm run build && npm run package"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "@types/which": "^3.0.4",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.0.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "simple-git": "^3.20.0",
+    "which": "^5.0.0"
+  }
+}
+ 

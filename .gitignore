@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+out/
+dist/
+*.vsix
+
+# Test outputs
+test-workspace/
+.vscode-test/
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary folders
+tmp/
+temp/
+.temp-rules-repo/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 
+
+# Cursor Rules
+# Исключаем все правила Cursor из основного репозитория
+# Исключаем все правила Cursor из основного репозитория
+.cursor/rules/*
+
+# Разрешаем синхронизацию указанных папок с основным проектом
+!.cursor/rules/my-project/
+!.cursor/rules/my-project/**
+
+# Разрешаем синхронизацию указанных папок с основным проектом
+!.cursor/rules/my-project/
+!.cursor/rules/my-project/**
