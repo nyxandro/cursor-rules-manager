@@ -258,7 +258,7 @@ export class RulesManager {
             // --- Новый блок: собираем списки файлов и хеши ---
             const getAllFilesWithHash = async (basePath: string): Promise<Record<string, string>> => {
                 const result: Record<string, string> = {};
-                if (!fs.existsSync(basePath)) {return result;}
+                if (!fs.existsSync(basePath)) return result;
                 const walk = async (dir: string, rel = '') => {
                     const items = fs.readdirSync(dir, { withFileTypes: true });
                     for (const item of items) {
@@ -275,7 +275,7 @@ export class RulesManager {
                             await walk(abs, relPath);
                         } else {
                             if (!this.gitignoreManager.shouldExcludeFromRulesRepo(relativeToWorkspace, this.config.excludePatterns)) {
-                                result[relPath] = fs.existsSync(abs) ? await this.getFileHash(abs) : '';
+                            result[relPath] = fs.existsSync(abs) ? await this.getFileHash(abs) : '';
                             } else {
                                 console.log(`Пропускаем исключённый файл: ${relPath}`);
                             }
@@ -316,24 +316,24 @@ export class RulesManager {
                     }
                 }
             } else {
-                for (const file in repoFiles) {
-                    if (!(file in localFiles)) {
-                        deleted++;
-                        toDelete.push(file);
-                    }
+            for (const file in repoFiles) {
+                if (!(file in localFiles)) {
+                    deleted++;
+                    toDelete.push(file);
                 }
+            }
             }
             // --- Удаляем только реально удалённые файлы (если защита не активирована) ---
             for (const file of toDelete) {
                 const abs = path.join(repoRulesPath, file);
-                if (fs.existsSync(abs)) {fs.unlinkSync(abs);}
+                if (fs.existsSync(abs)) fs.unlinkSync(abs);
             }
             // --- Копируем только новые и изменённые ---
             for (const file of toCopy) {
                 const src = path.join(workspaceRoot, this.config.globalRulesPath, file);
                 const dst = path.join(repoRulesPath, file);
                 const dstDir = path.dirname(dst);
-                if (!fs.existsSync(dstDir)) {fs.mkdirSync(dstDir, { recursive: true });}
+                if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
                 await this.copyFileForSync(src, dst);
             }
 
@@ -484,7 +484,7 @@ export class RulesManager {
             // --- Новый блок: собираем списки файлов и хеши ---
             const getAllFilesWithHash = async (basePath: string): Promise<Record<string, string>> => {
                 const result: Record<string, string> = {};
-                if (!fs.existsSync(basePath)) {return result;}
+                if (!fs.existsSync(basePath)) return result;
                 const walk = async (dir: string, rel = '') => {
                     const items = fs.readdirSync(dir, { withFileTypes: true });
                     for (const item of items) {
@@ -501,7 +501,7 @@ export class RulesManager {
                             await walk(abs, relPath);
                         } else {
                             if (!this.gitignoreManager.shouldExcludeFromRulesRepo(relativeToWorkspace, this.config.excludePatterns)) {
-                                result[relPath] = fs.existsSync(abs) ? await this.getFileHash(abs) : '';
+                            result[relPath] = fs.existsSync(abs) ? await this.getFileHash(abs) : '';
                             } else {
                                 console.log(`Пропускаем исключённый файл: ${relPath}`);
                             }
@@ -542,24 +542,24 @@ export class RulesManager {
                     }
                 }
             } else {
-                for (const file in repoFiles) {
-                    if (!(file in localFiles)) {
-                        deleted++;
-                        toDelete.push(file);
-                    }
+            for (const file in repoFiles) {
+                if (!(file in localFiles)) {
+                    deleted++;
+                    toDelete.push(file);
                 }
+            }
             }
             // --- Удаляем только реально удалённые файлы (если защита не активирована) ---
             for (const file of toDelete) {
                 const abs = path.join(repoRulesPath, file);
-                if (fs.existsSync(abs)) {fs.unlinkSync(abs);}
+                if (fs.existsSync(abs)) fs.unlinkSync(abs);
             }
             // --- Копируем только новые и изменённые ---
             for (const file of toCopy) {
                 const src = path.join(workspaceRoot, this.config.globalRulesPath, file);
                 const dst = path.join(repoRulesPath, file);
                 const dstDir = path.dirname(dst);
-                if (!fs.existsSync(dstDir)) {fs.mkdirSync(dstDir, { recursive: true });}
+                if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
                 await this.copyFileForSync(src, dst);
             }
 

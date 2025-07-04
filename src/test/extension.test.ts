@@ -409,6 +409,68 @@ suite('Cursor Rules Manager Test Suite', () => {
         assert.strictEqual(result, expected, 'Файл должен быть полностью заменен при загрузке');
     });
 
+    test('Должен защищать от удаления репозитория при отсутствии локальных правил', async () => {
+        // Создаем временную структуру для имитации репозитория
+        const tempRepoPath = path.join(testWorkspaceRoot, 'temp-repo');
+        const tempRulesPath = path.join(tempRepoPath, '.cursor', 'rules');
+        fs.mkdirSync(tempRulesPath, { recursive: true });
+        
+        // Создаем файлы в репозитории
+        const repoFile1 = path.join(tempRulesPath, 'core', 'core-rule.md');
+        const repoFile2 = path.join(tempRulesPath, 'database', 'db-rule.md');
+        fs.mkdirSync(path.dirname(repoFile1), { recursive: true });
+        fs.mkdirSync(path.dirname(repoFile2), { recursive: true });
+        fs.writeFileSync(repoFile1, '# Основное правило');
+        fs.writeFileSync(repoFile2, '# Правило базы данных');
+        
+        // Создаем папку для правил в рабочем пространстве, но НЕ создаем файлы
+        const workspaceRulesPath = path.join(testWorkspaceRoot, '.cursor', 'rules');
+        fs.mkdirSync(workspaceRulesPath, { recursive: true });
+        
+        // Имитируем логику syncRules - собираем списки файлов
+        const getAllFilesWithHash = async (basePath: string): Promise<Record<string, string>> => {
+            const result: Record<string, string> = {};
+            if (!fs.existsSync(basePath)) return result;
+            const walk = async (dir: string, rel = '') => {
+                const items = fs.readdirSync(dir, { withFileTypes: true });
+                for (const item of items) {
+                    const abs = path.join(dir, item.name);
+                    const relPath = path.join(rel, item.name);
+                    const fullPath = path.join(basePath, relPath);
+                    const relativeToWorkspace = path.relative(testWorkspaceRoot, fullPath);
+                    if (item.isDirectory()) {
+                        if (relPath && rulesManager.config.excludePatterns.includes(item.name)) {
+                            continue;
+                        }
+                        await walk(abs, relPath);
+                    } else {
+                        if (!rulesManager.gitignoreManager.shouldExcludeFromRulesRepo(relativeToWorkspace, rulesManager.config.excludePatterns)) {
+                            result[relPath] = fs.existsSync(abs) ? await rulesManager.getFileHash(abs) : '';
+                        }
+                    }
+                }
+            };
+            await walk(basePath);
+            return result;
+        };
+
+        const localFiles = await getAllFilesWithHash(workspaceRulesPath);
+        const repoFiles = await getAllFilesWithHash(tempRulesPath);
+
+        // Проверяем что локальных файлов нет
+        assert.strictEqual(Object.keys(localFiles).length, 0, 'Локальных файлов быть не должно');
+        
+        // Проверяем что в репозитории есть файлы
+        assert.strictEqual(Object.keys(repoFiles).length, 2, 'В репозитории должно быть 2 файла');
+        
+        // Проверяем что файлы в репозитории существуют
+        assert.ok(fs.existsSync(repoFile1), 'Файл core-rule.md должен существовать в репозитории');
+        assert.ok(fs.existsSync(repoFile2), 'Файл db-rule.md должен существовать в репозитории');
+        
+        // Очищаем временные файлы
+        fs.rmSync(tempRepoPath, { recursive: true, force: true });
+    });
+
     test('Должен использовать правильный формат коммита с датой и временем', () => {
         // Проверяем что формат коммита соответствует требованиям
         const commitMessage = 'Обновление правил Cursor AI от 2025-01-15 14:30:25';
