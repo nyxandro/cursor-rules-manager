@@ -4,7 +4,7 @@
 
 [![CI/CD](https://github.com/nyxandro/cursor-rules-manager/workflows/CI/CD/badge.svg)](https://github.com/nyxandro/cursor-rules-manager/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/nyxandro/cursor-rules-manager/releases)
+[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/nyxandro/cursor-rules-manager/releases)
 
 ## Возможности
 
