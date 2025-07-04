@@ -47,13 +47,16 @@ export class GitignoreManager {
         
         if (excludePatterns.length > 0) {
             section += '\n# Разрешаем синхронизацию указанных папок с основным проектом\n';
+            // Собираем уникальные разрешающие правила
+            const allowRules = new Set<string>();
             excludePatterns.forEach(pattern => {
-                section += `!.cursor/rules/${pattern}/\n`;
-                section += `!.cursor/rules/${pattern}/**\n`;
+                allowRules.add(`!.cursor/rules/${pattern}/`);
+                allowRules.add(`!.cursor/rules/${pattern}/**`);
             });
+            section += Array.from(allowRules).join('\n') + '\n';
         }
         
-        return section;
+        return section.trimEnd();
     }
     
     /**
@@ -62,43 +65,72 @@ export class GitignoreManager {
     private updateCursorRulesSection(content: string, excludePatterns: string[]): string {
         const lines = content.split('\n');
         const newLines: string[] = [];
-        let inCursorSection = false;
         let cursorSectionStart = -1;
         let cursorSectionEnd = -1;
-        
-        // Находим границы секции .cursor/rules
+        let inCursorSection = false;
+
+        // Находим границы секции .cursor/rules (начинается с комментария или первой строки с .cursor/rules)
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            
-            if (line.includes('.cursor/rules') && !line.startsWith('!')) {
+            if (!inCursorSection && (line.includes('# Cursor Rules') || (line.includes('.cursor/rules') && !line.startsWith('!')))) {
                 inCursorSection = true;
                 cursorSectionStart = i;
             }
-            
-            if (inCursorSection && !line.includes('.cursor/rules') && !line.startsWith('!') && line.trim() !== '') {
+            if (inCursorSection && i > cursorSectionStart && (line.trim() === '' || (!line.includes('.cursor/rules') && !line.startsWith('!') && !line.includes('Разрешаем синхронизацию') && !line.includes('Исключаем все правила')))) {
                 cursorSectionEnd = i;
                 break;
             }
         }
-        
-        if (cursorSectionEnd === -1) {
+        if (inCursorSection && cursorSectionEnd === -1) {
             cursorSectionEnd = lines.length;
         }
         
         // Копируем строки до секции .cursor/rules
-        for (let i = 0; i < cursorSectionStart; i++) {
+        for (let i = 0; i < (cursorSectionStart === -1 ? lines.length : cursorSectionStart); i++) {
             newLines.push(lines[i]);
         }
         
-        // Добавляем обновленную секцию
-        newLines.push(...this.generateCursorRulesSection(excludePatterns).split('\n'));
+        // Добавляем обновленную секцию с сохранением пустых строк
+        if (cursorSectionStart !== -1) {
+            // Всегда добавляем заголовок секции
+            newLines.push('# Cursor Rules');
+            const updatedSection = this.generateCursorRulesSection(excludePatterns).split('\n');
+            updatedSection.forEach(line => {
+                newLines.push(line);
+            });
+        }
         
         // Копируем строки после секции .cursor/rules
-        for (let i = cursorSectionEnd; i < lines.length; i++) {
+        for (let i = (cursorSectionEnd === -1 ? lines.length : cursorSectionEnd); i < lines.length; i++) {
+            // Пропускаем дублирующиеся разрешающие правила
+            if (lines[i].startsWith('!.cursor/rules/')) continue;
+            if (lines[i].includes('.cursor/rules') && !lines[i].startsWith('!')) continue;
+            if (lines[i].includes('# Cursor Rules')) continue;
+            if (lines[i].includes('Разрешаем синхронизацию')) continue;
+            if (lines[i].includes('Исключаем все правила')) continue;
             newLines.push(lines[i]);
         }
         
-        return newLines.join('\n');
+        // Удаляем дубликаты, но сохраняем пустые строки
+        const result: string[] = [];
+        const seen = new Set<string>();
+        
+        for (const line of newLines) {
+            if (line.trim() === '') {
+                // Для пустых строк проверяем только что предыдущая строка не была пустой
+                if (result.length === 0 || result[result.length - 1].trim() !== '') {
+                    result.push(line);
+                }
+            } else {
+                // Для непустых строк проверяем что такой строки еще не было
+                if (!seen.has(line)) {
+                    seen.add(line);
+                    result.push(line);
+                }
+            }
+        }
+        
+        return result.join('\n');
     }
     
     /**
