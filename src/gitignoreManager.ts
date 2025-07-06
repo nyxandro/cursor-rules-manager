@@ -103,11 +103,11 @@ export class GitignoreManager {
         // Копируем строки после секции .cursor/rules
         for (let i = (cursorSectionEnd === -1 ? lines.length : cursorSectionEnd); i < lines.length; i++) {
             // Пропускаем дублирующиеся разрешающие правила
-            if (lines[i].startsWith('!.cursor/rules/')) continue;
-            if (lines[i].includes('.cursor/rules') && !lines[i].startsWith('!')) continue;
-            if (lines[i].includes('# Cursor Rules')) continue;
-            if (lines[i].includes('Разрешаем синхронизацию')) continue;
-            if (lines[i].includes('Исключаем все правила')) continue;
+            if (lines[i].startsWith('!.cursor/rules/')) {continue;}
+            if (lines[i].includes('.cursor/rules') && !lines[i].startsWith('!')) {continue;}
+            if (lines[i].includes('# Cursor Rules')) {continue;}
+            if (lines[i].includes('Разрешаем синхронизацию')) {continue;}
+            if (lines[i].includes('Исключаем все правила')) {continue;}
             newLines.push(lines[i]);
         }
         

@@ -430,7 +430,7 @@ suite('Cursor Rules Manager Test Suite', () => {
         // Имитируем логику syncRules - собираем списки файлов
         const getAllFilesWithHash = async (basePath: string): Promise<Record<string, string>> => {
             const result: Record<string, string> = {};
-            if (!fs.existsSync(basePath)) return result;
+            if (!fs.existsSync(basePath)) {return result;}
             const walk = async (dir: string, rel = '') => {
                 const items = fs.readdirSync(dir, { withFileTypes: true });
                 for (const item of items) {

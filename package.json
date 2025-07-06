@@ -1,7 +1,8 @@
 {
   "name": "cursor-rules-manager",
+  "publisher": "nyxandro",
   "displayName": "Cursor Rules Manager",
-  "description": "Управление синхронизацией правил Cursor AI с GitHub репозиторием",
+  "description": "Расширение для Cursor AI, которое управляет синхронизацией правил с GitHub репозиторием. Поддерживает разделение на глобальные и локальные правила, автоматическое управление .gitignore, защиту от потери данных, настраиваемые уведомления и интеллектуальное сохранение настроек режима работы правил Cursor AI.",
   "version": "1.0.2",
   "icon": "resources/icon.png",
   "repository": {
@@ -14,7 +15,11 @@
     "rules",
     "sync",
     "github",
-    "vscode-extension"
+    "vscode-extension",
+    "gitignore",
+    "automation",
+    "settings",
+    "protection"
   ],
   "author": "nyxandro",
   "license": "MIT",

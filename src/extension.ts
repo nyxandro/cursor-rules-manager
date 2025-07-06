@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Функция автосинхронизации
     async function autoSync() {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!workspaceRoot) return;
+        if (!workspaceRoot) {return;}
         outputChannel?.appendLine(`[${new Date().toLocaleString()}] Автосинхронизация правил...`);
         try {
             const stats = await rulesManager.syncRules(workspaceRoot);
@@ -27,9 +27,9 @@ export function activate(context: vscode.ExtensionContext) {
             // Показываем уведомление только если включено в настройках и есть изменения
             if (showNotifications && stats.total > 0) {
                 const parts = [];
-                if (stats.added > 0) parts.push(`+${stats.added} добавлено`);
-                if (stats.modified > 0) parts.push(`${stats.modified} изменено`);
-                if (stats.deleted > 0) parts.push(`-${stats.deleted} удалено`);
+                if (stats.added > 0) {parts.push(`+${stats.added} добавлено`);}
+                if (stats.modified > 0) {parts.push(`${stats.modified} изменено`);}
+                if (stats.deleted > 0) {parts.push(`-${stats.deleted} удалено`);}
                 const message = `Автосинхронизация: ${parts.join(', ')}`;
                 showNotificationWithTimeout(message, 'info');
             }
@@ -71,8 +71,8 @@ export function activate(context: vscode.ExtensionContext) {
     function setupAutoSyncTimer() {
         const config = vscode.workspace.getConfiguration('cursorRulesManager');
         const intervalMin = config.get<number>('autoSyncInterval', 60);
-        if (lastAutoSyncInterval === intervalMin && autoSyncTimer) return;
-        if (autoSyncTimer) clearInterval(autoSyncTimer);
+        if (lastAutoSyncInterval === intervalMin && autoSyncTimer) {return;}
+        if (autoSyncTimer) {clearInterval(autoSyncTimer);}
         lastAutoSyncInterval = intervalMin;
         autoSyncTimer = setInterval(autoSync, intervalMin * 60 * 1000);
         outputChannel?.appendLine(`Таймер автосинхронизации установлен на ${intervalMin} мин.`);
@@ -105,9 +105,9 @@ export function activate(context: vscode.ExtensionContext) {
                 message += 'Изменений нет';
             } else {
                 const parts = [];
-                if (stats.added > 0) parts.push(`+${stats.added} добавлено`);
-                if (stats.modified > 0) parts.push(`${stats.modified} изменено`);
-                if (stats.deleted > 0) parts.push(`-${stats.deleted} удалено`);
+                if (stats.added > 0) {parts.push(`+${stats.added} добавлено`);}
+                if (stats.modified > 0) {parts.push(`${stats.modified} изменено`);}
+                if (stats.deleted > 0) {parts.push(`-${stats.deleted} удалено`);}
                 message += parts.join(', ');
             }
             
@@ -151,9 +151,9 @@ export function activate(context: vscode.ExtensionContext) {
                 message += 'Изменений нет';
             } else {
                 const parts = [];
-                if (stats.added > 0) parts.push(`+${stats.added} добавлено`);
-                if (stats.modified > 0) parts.push(`${stats.modified} изменено`);
-                if (stats.deleted > 0) parts.push(`-${stats.deleted} удалено`);
+                if (stats.added > 0) {parts.push(`+${stats.added} добавлено`);}
+                if (stats.modified > 0) {parts.push(`${stats.modified} изменено`);}
+                if (stats.deleted > 0) {parts.push(`-${stats.deleted} удалено`);}
                 message += parts.join(', ');
             }
             
@@ -205,6 +205,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
     console.log('Расширение "Cursor Rules Manager" деактивировано');
-    if (autoSyncTimer) clearInterval(autoSyncTimer);
+    if (autoSyncTimer) {clearInterval(autoSyncTimer);}
     outputChannel?.dispose();
 } 
