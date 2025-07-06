@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { RulesManager } from './rulesManager';
+import { GitignoreManager } from './gitignoreManager';
 
 let autoSyncTimer: NodeJS.Timeout | undefined;
 let lastAutoSyncInterval: number | undefined;
@@ -9,6 +10,7 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('Расширение "Cursor Rules Manager" активировано');
 
     const rulesManager = new RulesManager();
+    const gitignoreManager = new GitignoreManager();
     outputChannel = vscode.window.createOutputChannel('Cursor Rules Manager');
 
     // Функция автосинхронизации
@@ -87,6 +89,22 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Запускаем автосинхронизацию при активации
     setupAutoSyncTimer();
+
+    // Универсальная функция для проверки и автосинхронизации
+    async function syncIfRuleChanged(doc: vscode.TextDocument) {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {return;}
+        if (!doc.fileName.includes('.cursor/rules') || doc.isUntitled) {return;}
+        // Получаем excludePatterns из настроек
+        const config = vscode.workspace.getConfiguration('cursorRulesManager');
+        const excludePatterns = config.get<string[]>('excludePatterns', ['my-project']);
+        // Проверяем, что файл не исключён
+        if (gitignoreManager.shouldExclude(doc.fileName, excludePatterns)) {return;}
+        await autoSync();
+    }
+
+    // Автосинхронизация при сохранении файла правила
+    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(syncIfRuleChanged));
 
     // Команда синхронизации правил
     let syncRulesCommand = vscode.commands.registerCommand('cursor-rules-manager.syncRules', async () => {

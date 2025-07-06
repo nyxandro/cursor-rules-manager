@@ -173,19 +173,17 @@ export class RulesManager {
             
             if (matchSrc && matchDest) {
                 const destFrontmatter = matchDest[1];
-                let srcBody = matchSrc[2].replace(/^\s+/, ''); // убираем лишние пустые строки
-                
-                // Собираем новый файл: frontmatter из целевого файла + контент из исходного
-                const newContent = destFrontmatter + '\n' + srcBody;
+                const srcBody = matchSrc[2]; // не удаляем пустые строки!
+                const newContent = destFrontmatter + srcBody;
                 fs.writeFileSync(destination, newContent, 'utf8');
             } else {
                 // Если нет frontmatter в одном из файлов, копируем как есть
                 fs.copyFileSync(source, destination);
             }
-        } else {
-            // Для локальных правил, не markdown или если целевой файл не существует — копируем как есть
-            fs.copyFileSync(source, destination);
+            return;
         }
+        // Для локальных правил, не markdown или если целевой файл не существует — копируем как есть
+        fs.copyFileSync(source, destination);
     }
 
     public async copyDirectory(source: string, destination: string): Promise<void> {
@@ -293,6 +291,7 @@ export class RulesManager {
             let added = 0, modified = 0, deleted = 0;
             const toCopy: string[] = [];
             const toDelete: string[] = [];
+            const debugLog: string[] = [];
 
             for (const file in localFiles) {
                 if (!(file in repoFiles)) {
@@ -303,6 +302,37 @@ export class RulesManager {
                     toCopy.push(file);
                 }
             }
+            for (const file in repoFiles) {
+                if (!(file in localFiles)) {
+                    deleted++;
+                    toDelete.push(file);
+                }
+            }
+
+            debugLog.push(`Синхронизация от ${new Date().toLocaleString()}`);
+            debugLog.push('--- Added ---');
+            debugLog.push(...toCopy.filter(f => !(f in repoFiles)));
+            debugLog.push('--- Modified ---');
+            debugLog.push(...toCopy.filter(f => f in repoFiles));
+            debugLog.push('--- Deleted ---');
+            debugLog.push(...toDelete);
+            debugLog.push('--- END ---');
+
+            // Сохраняем лог в файл
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const logFileName = `sync-debug-log-${year}${month}${day}-${hours}${minutes}${seconds}.txt`;
+                fs.writeFileSync(path.join(workspaceRoot, logFileName), debugLog.join('\n'), 'utf8');
+            } catch (e) {
+                console.error('Ошибка записи debug-лога:', e);
+            }
+
             // --- ЗАЩИТА ОТ УДАЛЕНИЯ РЕПОЗИТОРИЯ ---
             // Проверяем, есть ли локальные файлы вообще
             const hasLocalFiles = Object.keys(localFiles).length > 0;
@@ -316,17 +346,10 @@ export class RulesManager {
                     }
                 }
             } else {
-            for (const file in repoFiles) {
-                if (!(file in localFiles)) {
-                    deleted++;
-                    toDelete.push(file);
-                }
-            }
-            }
-            // --- Удаляем только реально удалённые файлы (если защита не активирована) ---
             for (const file of toDelete) {
                 const abs = path.join(repoRulesPath, file);
                 if (fs.existsSync(abs)) {fs.unlinkSync(abs);}
+            }
             }
             // --- Копируем только новые и изменённые ---
             for (const file of toCopy) {
@@ -363,7 +386,8 @@ export class RulesManager {
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 const seconds = String(now.getSeconds()).padStart(2, '0');
                 const dateTimeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-                const commitMessage = `Обновление правил Cursor AI от ${dateTimeString}`;
+                const projectName = path.basename(workspaceRoot);
+                const commitMessage = `Обновление правил Cursor AI в проекте ${projectName} от ${dateTimeString}`;
                 console.log('Коммичу изменения...');
                 await git.commit(commitMessage);
                 console.log('Изменения закоммичены');
@@ -519,6 +543,7 @@ export class RulesManager {
             let added = 0, modified = 0, deleted = 0;
             const toCopy: string[] = [];
             const toDelete: string[] = [];
+            const debugLog: string[] = [];
 
             for (const file in localFiles) {
                 if (!(file in repoFiles)) {
@@ -529,6 +554,37 @@ export class RulesManager {
                     toCopy.push(file);
                 }
             }
+            for (const file in repoFiles) {
+                if (!(file in localFiles)) {
+                    deleted++;
+                    toDelete.push(file);
+                }
+            }
+
+            debugLog.push(`Синхронизация от ${new Date().toLocaleString()}`);
+            debugLog.push('--- Added ---');
+            debugLog.push(...toCopy.filter(f => !(f in repoFiles)));
+            debugLog.push('--- Modified ---');
+            debugLog.push(...toCopy.filter(f => f in repoFiles));
+            debugLog.push('--- Deleted ---');
+            debugLog.push(...toDelete);
+            debugLog.push('--- END ---');
+
+            // Сохраняем лог в файл
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const logFileName = `sync-debug-log-${year}${month}${day}-${hours}${minutes}${seconds}.txt`;
+                fs.writeFileSync(path.join(workspaceRoot, logFileName), debugLog.join('\n'), 'utf8');
+            } catch (e) {
+                console.error('Ошибка записи debug-лога:', e);
+            }
+
             // --- ЗАЩИТА ОТ УДАЛЕНИЯ РЕПОЗИТОРИЯ ---
             // Проверяем, есть ли локальные файлы вообще
             const hasLocalFiles = Object.keys(localFiles).length > 0;
@@ -542,17 +598,10 @@ export class RulesManager {
                     }
                 }
             } else {
-            for (const file in repoFiles) {
-                if (!(file in localFiles)) {
-                    deleted++;
-                    toDelete.push(file);
-                }
-            }
-            }
-            // --- Удаляем только реально удалённые файлы (если защита не активирована) ---
             for (const file of toDelete) {
                 const abs = path.join(repoRulesPath, file);
                 if (fs.existsSync(abs)) {fs.unlinkSync(abs);}
+            }
             }
             // --- Копируем только новые и изменённые ---
             for (const file of toCopy) {
@@ -589,7 +638,8 @@ export class RulesManager {
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 const seconds = String(now.getSeconds()).padStart(2, '0');
                 const dateTimeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-                const commitMessage = `Обновление правил Cursor AI от ${dateTimeString}`;
+                const projectName = path.basename(workspaceRoot);
+                const commitMessage = `Обновление правил Cursor AI в проекте ${projectName} от ${dateTimeString}`;
                 console.log('Коммичу изменения...');
                 await git.commit(commitMessage);
                 console.log('Изменения закоммичены');
