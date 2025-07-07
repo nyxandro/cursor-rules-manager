@@ -266,8 +266,21 @@ export class RulesManager {
             
             // Клонируем репозиторий
             console.log('Клонирую репозиторий...');
-            await git.clone(this.config.rulesRepoUrl, tempDir);
-            console.log('Репозиторий склонирован');
+            try {
+                await git.clone(this.config.rulesRepoUrl, tempDir);
+                console.log('Репозиторий склонирован');
+            } catch (cloneError) {
+                console.error('Ошибка клонирования репозитория:', cloneError);
+                throw new Error(`Не удалось подключиться к репозиторию ${this.config.rulesRepoUrl}. 
+                
+Возможные причины:
+- Неверный URL репозитория
+- Репозиторий недоступен или приватный
+- Проблемы с сетевым подключением
+- Не настроена авторизация Git
+
+Проверьте настройки и повторите попытку.`);
+            }
             
             const repoRulesPath = path.join(tempDir, this.config.globalRulesPath);
             console.log('Путь к правилам в репозитории:', repoRulesPath);
@@ -316,7 +329,6 @@ export class RulesManager {
             let added = 0, modified = 0, deleted = 0;
             const toCopy: string[] = [];
             const toDelete: string[] = [];
-            const debugLog: string[] = [];
 
             for (const file in localFiles) {
                 if (!(file in repoFiles)) {
@@ -334,48 +346,6 @@ export class RulesManager {
                 }
             }
 
-            debugLog.push(`Синхронизация от ${new Date().toLocaleString()}`);
-            debugLog.push('--- Added ---');
-            debugLog.push(...toCopy.filter(f => !(f in repoFiles)));
-            debugLog.push('--- Modified ---');
-            debugLog.push(...toCopy.filter(f => f in repoFiles));
-            debugLog.push('--- Deleted ---');
-            debugLog.push(...toDelete);
-            debugLog.push('--- END ---');
-
-            // Сохраняем лог в файл
-            try {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const seconds = String(now.getSeconds()).padStart(2, '0');
-                const logFileName = `sync-debug-log-${year}${month}${day}-${hours}${minutes}${seconds}.txt`;
-                fs.writeFileSync(path.join(workspaceRoot, logFileName), debugLog.join('\n'), 'utf8');
-            } catch (e) {
-                console.error('Ошибка записи debug-лога:', e);
-            }
-
-            // --- ЗАЩИТА ОТ УДАЛЕНИЯ РЕПОЗИТОРИЯ ---
-            // Проверяем, есть ли локальные файлы вообще
-            const hasLocalFiles = Object.keys(localFiles).length > 0;
-            if (!hasLocalFiles) {
-                console.log('⚠️  ВНИМАНИЕ: Локальная папка .cursor/rules пуста или не содержит файлов для синхронизации');
-                console.log('⚠️  Защита активирована: удаление файлов из репозитория заблокировано');
-                console.log('⚠️  Это предотвращает случайное удаление всего репозитория при временном удалении локальных правил');
-                for (const file in repoFiles) {
-                    if (!(file in localFiles)) {
-                        console.log(`⚠️  Пропускаем удаление файла из репозитория: ${file}`);
-                    }
-                }
-            } else {
-            for (const file of toDelete) {
-                const abs = path.join(repoRulesPath, file);
-                if (fs.existsSync(abs)) {fs.unlinkSync(abs);}
-            }
-            }
             // --- Копируем только новые и изменённые ---
             for (const file of toCopy) {
                 const src = path.join(workspaceRoot, this.config.globalRulesPath, file);
@@ -416,9 +386,44 @@ export class RulesManager {
                 console.log('Коммичу изменения...');
                 await git.commit(commitMessage);
                 console.log('Изменения закоммичены');
+                
+                // Сначала пытаемся получить последние изменения с сервера
+                console.log('Получаю последние изменения с сервера...');
+                try {
+                    await git.pull();
+                    console.log('Изменения получены с сервера');
+                } catch (pullError) {
+                    console.log('Ошибка при получении изменений с сервера:', pullError);
+                    // Если pull не удался, продолжаем с push
+                }
+                
                 console.log('Отправляю изменения в GitHub...');
-                await git.push();
-                console.log('Изменения отправлены в GitHub');
+                try {
+                    await git.push();
+                    console.log('Изменения отправлены в GitHub');
+                } catch (pushError) {
+                    console.error('Ошибка при отправке изменений:', pushError);
+                    const errorMessage = String(pushError);
+                    
+                    if (errorMessage.includes('fetch first') || errorMessage.includes('rejected')) {
+                        throw new Error(`Конфликт при синхронизации: в удалённом репозитории есть изменения, которых нет локально. 
+                        
+Для решения:
+1. Выполните команду "Загрузить правила из GitHub" для получения последних изменений
+2. Затем повторите синхронизацию
+
+Или выполните команду "Синхронизировать правила Cursor" для автоматического разрешения конфликтов.`);
+                    } else {
+                        throw new Error(`Ошибка отправки в GitHub: ${errorMessage}. 
+                        
+Возможные причины:
+- Нет прав на запись в репозиторий
+- Проблемы с сетевым подключением
+- Репозиторий недоступен
+
+Проверьте настройки доступа к репозиторию и повторите попытку.`);
+                    }
+                }
             } else {
                 console.log('Нет изменений для коммита');
             }
@@ -580,7 +585,6 @@ export class RulesManager {
             let added = 0, modified = 0, deleted = 0;
             const toCopy: string[] = [];
             const toDelete: string[] = [];
-            const debugLog: string[] = [];
 
             for (const file in localFiles) {
                 if (!(file in repoFiles)) {
@@ -598,48 +602,6 @@ export class RulesManager {
                 }
             }
 
-            debugLog.push(`Синхронизация от ${new Date().toLocaleString()}`);
-            debugLog.push('--- Added ---');
-            debugLog.push(...toCopy.filter(f => !(f in repoFiles)));
-            debugLog.push('--- Modified ---');
-            debugLog.push(...toCopy.filter(f => f in repoFiles));
-            debugLog.push('--- Deleted ---');
-            debugLog.push(...toDelete);
-            debugLog.push('--- END ---');
-
-            // Сохраняем лог в файл
-            try {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const seconds = String(now.getSeconds()).padStart(2, '0');
-                const logFileName = `sync-debug-log-${year}${month}${day}-${hours}${minutes}${seconds}.txt`;
-                fs.writeFileSync(path.join(workspaceRoot, logFileName), debugLog.join('\n'), 'utf8');
-            } catch (e) {
-                console.error('Ошибка записи debug-лога:', e);
-            }
-
-            // --- ЗАЩИТА ОТ УДАЛЕНИЯ РЕПОЗИТОРИЯ ---
-            // Проверяем, есть ли локальные файлы вообще
-            const hasLocalFiles = Object.keys(localFiles).length > 0;
-            if (!hasLocalFiles) {
-                console.log('⚠️  ВНИМАНИЕ: Локальная папка .cursor/rules пуста или не содержит файлов для синхронизации');
-                console.log('⚠️  Защита активирована: удаление файлов из репозитория заблокировано');
-                console.log('⚠️  Это предотвращает случайное удаление всего репозитория при временном удалении локальных правил');
-                for (const file in repoFiles) {
-                    if (!(file in localFiles)) {
-                        console.log(`⚠️  Пропускаем удаление файла из репозитория: ${file}`);
-                    }
-                }
-            } else {
-            for (const file of toDelete) {
-                const abs = path.join(repoRulesPath, file);
-                if (fs.existsSync(abs)) {fs.unlinkSync(abs);}
-            }
-            }
             // --- Копируем только новые и изменённые ---
             for (const file of toCopy) {
                 const src = path.join(workspaceRoot, this.config.globalRulesPath, file);
@@ -680,9 +642,44 @@ export class RulesManager {
                 console.log('Коммичу изменения...');
                 await git.commit(commitMessage);
                 console.log('Изменения закоммичены');
+                
+                // Сначала пытаемся получить последние изменения с сервера
+                console.log('Получаю последние изменения с сервера...');
+                try {
+                    await git.pull();
+                    console.log('Изменения получены с сервера');
+                } catch (pullError) {
+                    console.log('Ошибка при получении изменений с сервера:', pullError);
+                    // Если pull не удался, продолжаем с push
+                }
+                
                 console.log('Отправляю изменения в GitHub...');
-                await git.push();
-                console.log('Изменения отправлены в GitHub');
+                try {
+                    await git.push();
+                    console.log('Изменения отправлены в GitHub');
+                } catch (pushError) {
+                    console.error('Ошибка при отправке изменений:', pushError);
+                    const errorMessage = String(pushError);
+                    
+                    if (errorMessage.includes('fetch first') || errorMessage.includes('rejected')) {
+                        throw new Error(`Конфликт при синхронизации: в удалённом репозитории есть изменения, которых нет локально. 
+                        
+Для решения:
+1. Выполните команду "Загрузить правила из GitHub" для получения последних изменений
+2. Затем повторите синхронизацию
+
+Или выполните команду "Синхронизировать правила Cursor" для автоматического разрешения конфликтов.`);
+                    } else {
+                        throw new Error(`Ошибка отправки в GitHub: ${errorMessage}. 
+                        
+Возможные причины:
+- Нет прав на запись в репозиторий
+- Проблемы с сетевым подключением
+- Репозиторий недоступен
+
+Проверьте настройки доступа к репозиторию и повторите попытку.`);
+                    }
+                }
             } else {
                 console.log('Нет изменений для коммита');
             }
