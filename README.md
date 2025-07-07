@@ -6,11 +6,11 @@
 
 [![CI/CD](https://github.com/nyxandro/cursor-rules-manager/workflows/CI/CD/badge.svg)](https://github.com/nyxandro/cursor-rules-manager/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/nyxandro/cursor-rules-manager/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/nyxandro/cursor-rules-manager/releases)
 
 ## 📦 Скачать расширение
 
-**[⬇️ Скачать последнюю версию .vsix](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.0.2.vsix)**
+**[⬇️ Скачать последнюю версию .vsix](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.1.0.vsix)**
 
 ## 🚀 Быстрый старт
 
@@ -28,7 +28,7 @@
    ```
 
 ### Шаг 2: Установите расширение
-1. [Скачайте .vsix-файл](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.0.2.vsix)
+1. [Скачайте .vsix-файл](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.1.0.vsix)
 2. Установите в Cursor/VSCode через Extensions → Install from VSIX
 
 ### Шаг 3: Настройте расширение
@@ -174,7 +174,7 @@ alwaysApply: true
 
 ### Из .vsix файла
 
-1. [Скачайте .vsix-файл из репозитория](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.0.2.vsix) или с [GitHub Releases](https://github.com/nyxandro/cursor-rules-manager/releases)
+1. [Скачайте .vsix-файл из репозитория](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.1.0.vsix) или с [GitHub Releases](https://github.com/nyxandro/cursor-rules-manager/releases)
 2. Установите .vsix файл в Cursor/VSCode:
    - Откройте Cursor/VSCode
    - Перейдите в Extensions (Ctrl+Shift+X)
