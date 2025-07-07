@@ -1,10 +1,16 @@
 # Cursor Rules Manager
 
+![Logo](resources/icon.png)
+
 Расширение для Cursor AI, которое управляет синхронизацией правил с GitHub репозиторием. Поддерживает разделение на глобальные и локальные правила, автоматическое управление .gitignore, защиту от потери данных, настраиваемые уведомления и интеллектуальное сохранение настроек режима работы правил Cursor AI.
 
 [![CI/CD](https://github.com/nyxandro/cursor-rules-manager/workflows/CI/CD/badge.svg)](https://github.com/nyxandro/cursor-rules-manager/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/nyxandro/cursor-rules-manager/releases)
+
+## 📦 Скачать расширение
+
+**[⬇️ Скачать последнюю версию .vsix](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.0.2.vsix)**
 
 ## Возможности
 
@@ -121,10 +127,6 @@ alwaysApply: true
 - **Загрузить правила из GitHub** — загружает последние версии правил из GitHub репозитория.
 - **Отправить правила в GitHub** — отправляет локальные изменения правил в GitHub репозиторий.
 - **Показать статус правил** — отображает текущее состояние правил в проекте.
-
-## Скачать расширение
-
-- [Скачать последнюю версию .vsix](https://github.com/nyxandro/cursor-rules-manager/raw/master/releases/cursor-rules-manager-1.0.2.vsix)
 
 ## Установка
 
