@@ -143,7 +143,7 @@ suite('Cursor Rules Manager Test Suite', () => {
         };
         
         const isValid = rulesManager.validateConfig(validConfig);
-        assert.strictEqual(isValid, true);
+        assert.strictEqual(isValid.isValid, true);
         
         const invalidConfig = {
             rulesRepoUrl: '',
@@ -152,7 +152,8 @@ suite('Cursor Rules Manager Test Suite', () => {
         };
         
         const isInvalid = rulesManager.validateConfig(invalidConfig);
-        assert.strictEqual(isInvalid, false);
+        assert.strictEqual(isInvalid.isValid, false);
+        assert.notStrictEqual(isInvalid.error, undefined);
     });
 
     test('Должен обрабатывать пустые директории', async () => {

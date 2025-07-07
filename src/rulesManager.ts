@@ -61,16 +61,35 @@ export class RulesManager {
     private getDefaultConfig(): Config {
         const workspaceConfig = vscode.workspace.getConfiguration('cursorRulesManager');
         return {
-            rulesRepoUrl: workspaceConfig.get('rulesRepoUrl', 'https://github.com/nyxandro/my-cursor-rules.git'),
+            rulesRepoUrl: workspaceConfig.get('rulesRepoUrl', ''),
             globalRulesPath: workspaceConfig.get('globalRulesPath', '.cursor/rules'),
             excludePatterns: workspaceConfig.get('excludePatterns', ['my-project'])
         };
     }
 
-    public validateConfig(config: Config): boolean {
-        return config.rulesRepoUrl.length > 0 && 
-               config.globalRulesPath.length > 0 && 
-               config.excludePatterns.length > 0;
+    public validateConfig(config: Config): { isValid: boolean; error?: string } {
+        if (!config.rulesRepoUrl || config.rulesRepoUrl.trim() === '') {
+            return {
+                isValid: false,
+                error: 'URL репозитория с правилами не указан. Пожалуйста, укажите Rules Repo Url в настройках расширения и перезапустите IDE.'
+            };
+        }
+        
+        if (!config.globalRulesPath || config.globalRulesPath.trim() === '') {
+            return {
+                isValid: false,
+                error: 'Путь к глобальным правилам не указан.'
+            };
+        }
+        
+        if (!config.excludePatterns || config.excludePatterns.length === 0) {
+            return {
+                isValid: false,
+                error: 'Список исключаемых папок не указан.'
+            };
+        }
+        
+        return { isValid: true };
     }
 
     public async getRulesStructure(workspaceRoot: string): Promise<RulesStructure> {
@@ -227,6 +246,12 @@ export class RulesManager {
         try {
             console.log('Начинаю синхронизацию правил...');
             console.log('Workspace root:', workspaceRoot);
+            
+            // Проверяем конфигурацию
+            const configValidation = this.validateConfig(this.config);
+            if (!configValidation.isValid) {
+                throw new Error(configValidation.error || 'Неверная конфигурация');
+            }
             
             // Проверяем и обновляем .gitignore
             await this.gitignoreManager.ensureGitignore(workspaceRoot, this.config.excludePatterns);
@@ -427,6 +452,12 @@ export class RulesManager {
         try {
             console.log('Начинаю загрузку правил из GitHub...');
             
+            // Проверяем конфигурацию
+            const configValidation = this.validateConfig(this.config);
+            if (!configValidation.isValid) {
+                throw new Error(configValidation.error || 'Неверная конфигурация');
+            }
+            
             // Проверяем и обновляем .gitignore
             await this.gitignoreManager.ensureGitignore(workspaceRoot, this.config.excludePatterns);
             console.log('Gitignore обновлен');
@@ -479,6 +510,12 @@ export class RulesManager {
         try {
             console.log('Начинаю отправку правил...');
             console.log('Workspace root:', workspaceRoot);
+            
+            // Проверяем конфигурацию
+            const configValidation = this.validateConfig(this.config);
+            if (!configValidation.isValid) {
+                throw new Error(configValidation.error || 'Неверная конфигурация');
+            }
             
             // Проверяем и обновляем .gitignore
             await this.gitignoreManager.ensureGitignore(workspaceRoot, this.config.excludePatterns);
