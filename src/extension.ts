@@ -8,10 +8,11 @@ let outputChannel: vscode.OutputChannel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Расширение "Cursor Rules Manager" активировано');
+    outputChannel = vscode.window.createOutputChannel('Cursor Rules Manager');
+    outputChannel.appendLine(`[${new Date().toLocaleString()}] Расширение "Cursor Rules Manager" активировано`);
 
     const rulesManager = new RulesManager();
     const gitignoreManager = new GitignoreManager();
-    outputChannel = vscode.window.createOutputChannel('Cursor Rules Manager');
 
     // Функция автосинхронизации
     async function autoSync() {
@@ -69,7 +70,7 @@ export function activate(context: vscode.ExtensionContext) {
         return notification;
     }
 
-    // Функция для запуска/перезапуска таймера автосинхронизации
+    // Функция для установки/перезапуска таймера автосинхронизации (без немедленного запуска)
     function setupAutoSyncTimer() {
         const config = vscode.workspace.getConfiguration('cursorRulesManager');
         const intervalMin = config.get<number>('autoSyncInterval', 60);
@@ -87,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    // Запускаем автосинхронизацию при активации
+    // Устанавливаем таймер автосинхронизации (без немедленного запуска)
     setupAutoSyncTimer();
 
     // Универсальная функция для проверки и автосинхронизации
@@ -145,8 +146,20 @@ export function activate(context: vscode.ExtensionContext) {
 
         try {
             showNotificationWithTimeout('Загружаю правила из GitHub...', 'info');
-            await rulesManager.pullRules(workspaceRoot);
-            showNotificationWithTimeout('Правила загружены успешно!', 'info');
+            const stats = await rulesManager.pullRules(workspaceRoot);
+            
+            let message = 'Правила загружены успешно! ';
+            if (stats.total === 0) {
+                message += 'Изменений нет';
+            } else {
+                const parts = [];
+                if (stats.added > 0) {parts.push(`+${stats.added} добавлено`);}
+                if (stats.modified > 0) {parts.push(`${stats.modified} изменено`);}
+                if (stats.deleted > 0) {parts.push(`-${stats.deleted} удалено`);}
+                message += parts.join(', ');
+            }
+            
+            showNotificationWithTimeout(message, 'info');
         } catch (error) {
             showNotificationWithTimeout(`Ошибка загрузки правил: ${error}`, 'error');
         }
@@ -204,15 +217,135 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Команда проверки статуса первой синхронизации
+    let checkFirstSyncCommand = vscode.commands.registerCommand('cursor-rules-manager.checkFirstSync', async () => {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {
+            showNotificationWithTimeout('Не открыт рабочий проект', 'error');
+            return;
+        }
+
+        try {
+            const syncInfo = await rulesManager.checkFirstSyncStatus(workspaceRoot);
+            
+            let message = 'Статус первой синхронизации:\n';
+            message += `• Локальные правила: ${syncInfo.hasLocalRules ? `${syncInfo.localRulesCount} файлов` : 'нет'}\n`;
+            message += `• Удаленные правила: ${syncInfo.hasRemoteRules ? `${syncInfo.remoteRulesCount} файлов` : 'нет'}\n`;
+            
+            if (syncInfo.conflicts.length > 0) {
+                message += `• Конфликты имен: ${syncInfo.conflicts.join(', ')}\n`;
+            }
+            
+            if (syncInfo.isFirstSync) {
+                message += '\n✅ Это первая синхронизация - можно безопасно начинать';
+            } else if (syncInfo.hasLocalRules && syncInfo.hasRemoteRules) {
+                message += '\n⚠️ Обнаружены и локальные и удаленные правила - нужна стратегия слияния';
+            } else if (syncInfo.hasLocalRules) {
+                message += '\n📤 Только локальные правила - можно безопасно отправить в репозиторий';
+            } else if (syncInfo.hasRemoteRules) {
+                message += '\n📥 Только удаленные правила - можно безопасно загрузить';
+            }
+            
+            // Создаем новый документ для отображения статуса
+            const document = await vscode.workspace.openTextDocument({
+                content: message,
+                language: 'markdown'
+            });
+            
+            await vscode.window.showTextDocument(document);
+        } catch (error) {
+            showNotificationWithTimeout(`Ошибка проверки статуса: ${error}`, 'error');
+        }
+    });
+
+    // Команда безопасной первой синхронизации
+    let safeFirstSyncCommand = vscode.commands.registerCommand('cursor-rules-manager.safeFirstSync', async () => {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {
+            showNotificationWithTimeout('Не открыт рабочий проект', 'error');
+            return;
+        }
+
+        try {
+            const syncInfo = await rulesManager.checkFirstSyncStatus(workspaceRoot);
+            
+            if (syncInfo.isFirstSync) {
+                // Простая первая синхронизация
+                const stats = await rulesManager.safeFirstSync(workspaceRoot, {
+                    backupLocalRules: false,
+                    mergeStrategy: 'local-first',
+                    createBackup: false
+                });
+                showNotificationWithTimeout('Первая синхронизация завершена успешно!', 'info');
+                return;
+            }
+            
+            if (syncInfo.hasLocalRules && syncInfo.hasRemoteRules && syncInfo.conflicts.length > 0) {
+                // Есть конфликты - предлагаем выбор стратегии
+                const strategy = await vscode.window.showQuickPick([
+                    'Локальные правила имеют приоритет (ваши правила перезапишут удаленные)',
+                    'Удаленные правила имеют приоритет (удаленные правила перезапишут ваши)',
+                    'Создать резервную копию и использовать локальные правила',
+                    'Отмена'
+                ], {
+                    placeHolder: 'Выберите стратегию синхронизации'
+                });
+                
+                if (!strategy || strategy === 'Отмена') {
+                    return;
+                }
+                
+                const createBackup = strategy.includes('резервную копию');
+                const mergeStrategy = strategy.includes('локальные правила') ? 'local-first' : 'remote-first';
+                
+                if (createBackup) {
+                    showNotificationWithTimeout('Создаю резервную копию...', 'info');
+                }
+                
+                const stats = await rulesManager.safeFirstSync(workspaceRoot, {
+                    backupLocalRules: false,
+                    mergeStrategy,
+                    createBackup
+                });
+                
+                let message = 'Безопасная синхронизация завершена! ';
+                if (stats.total === 0) {
+                    message += 'Изменений нет';
+                } else {
+                    const parts = [];
+                    if (stats.added > 0) {parts.push(`+${stats.added} добавлено`);}
+                    if (stats.modified > 0) {parts.push(`${stats.modified} изменено`);}
+                    if (stats.deleted > 0) {parts.push(`-${stats.deleted} удалено`);}
+                    message += parts.join(', ');
+                }
+                
+                showNotificationWithTimeout(message, 'info');
+            } else {
+                // Нет конфликтов - выполняем обычную синхронизацию
+                const stats = await rulesManager.safeFirstSync(workspaceRoot, {
+                    backupLocalRules: false,
+                    mergeStrategy: 'local-first',
+                    createBackup: false
+                });
+                
+                showNotificationWithTimeout('Безопасная синхронизация завершена успешно!', 'info');
+            }
+        } catch (error) {
+            showNotificationWithTimeout(`Ошибка безопасной синхронизации: ${error}`, 'error');
+        }
+    });
+
     // Регистрируем команды
     context.subscriptions.push(syncRulesCommand);
     context.subscriptions.push(pullRulesCommand);
     context.subscriptions.push(pushRulesCommand);
     context.subscriptions.push(showStatusCommand);
+    context.subscriptions.push(checkFirstSyncCommand);
+    context.subscriptions.push(safeFirstSyncCommand);
 
     // Показываем уведомление о доступных командах
     showNotificationWithTimeout(
-        'Cursor Rules Manager активирован! Используйте команды в палитре команд (Ctrl+Shift+P):\n' +
+        'Cursor Rules Manager активирован! Автосинхронизация настроена. Используйте команды в палитре команд (Ctrl+Shift+P):\n' +
         '- "Синхронизировать правила Cursor"\n' +
         '- "Загрузить правила из GitHub"\n' +
         '- "Отправить правила в GitHub"\n' +

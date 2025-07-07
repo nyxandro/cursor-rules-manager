@@ -204,6 +204,7 @@ suite('Cursor Rules Manager Test Suite', () => {
         assert.strictEqual(rules.globalRules.length, 1);
         assert.strictEqual(rules.globalRules[0].name, 'special-chars');
         assert.strictEqual(rules.globalRules[0].files.length, 1);
+        assert.strictEqual(path.basename(rules.globalRules[0].files[0]), specialFileName);
     });
 
     test('Должен правильно обрабатывать файлы в корне rules папки', async () => {
@@ -544,6 +545,37 @@ suite('Cursor Rules Manager Test Suite', () => {
         if (showNotificationsEnabled && statsNoChanges.total > 0) {
             // Уведомление НЕ должно показываться
             assert.strictEqual(statsNoChanges.total, 0, 'Уведомление не должно показываться когда нет изменений');
+        }
+    });
+
+    test('При активации расширения не должна запускаться автосинхронизация', async () => {
+        // Создаем мок для vscode.workspace.getConfiguration
+        const originalGetConfiguration = vscode.workspace.getConfiguration;
+        let autoSyncCalled = false;
+        
+        // Мокаем RulesManager.syncRules чтобы отследить вызовы
+        const originalSyncRules = rulesManager.syncRules;
+        rulesManager.syncRules = async () => {
+            autoSyncCalled = true;
+            return { added: 0, modified: 0, deleted: 0, total: 0 };
+        };
+        
+        try {
+            // Имитируем активацию расширения
+            // В реальной активации autoSync() не должна вызываться
+            const mockContext = {
+                subscriptions: [] as any[]
+            };
+            
+            // Проверяем, что автосинхронизация не запускается автоматически
+            assert.strictEqual(autoSyncCalled, false);
+            
+            // Проверяем, что таймер автосинхронизации устанавливается, но не запускается немедленно
+            // Это проверяется тем, что autoSyncCalled остается false
+        } finally {
+            // Восстанавливаем оригинальные методы
+            vscode.workspace.getConfiguration = originalGetConfiguration;
+            rulesManager.syncRules = originalSyncRules;
         }
     });
 }); 

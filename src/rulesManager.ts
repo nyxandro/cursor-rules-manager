@@ -7,6 +7,67 @@ import * as os from 'os';
 import which from 'which';
 import { GitignoreManager } from './gitignoreManager';
 
+// Retry конфигурация для сетевых операций
+export interface RetryConfig {
+    maxAttempts: number;
+    baseDelay: number;
+    maxDelay: number;
+    backoffMultiplier: number;
+}
+
+// Утилита для retry логики
+async function withRetry<T>(
+    operation: () => Promise<T>,
+    config: RetryConfig,
+    operationName: string
+): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error as Error;
+            const errorMessage = String(error);
+            
+            // Проверяем, является ли ошибка сетевой/временной
+            const isRetryableError = 
+                errorMessage.includes('fetch first') ||
+                errorMessage.includes('rejected') ||
+                errorMessage.includes('timeout') ||
+                errorMessage.includes('network') ||
+                errorMessage.includes('connection') ||
+                errorMessage.includes('unable to access') ||
+                errorMessage.includes('Could not resolve host') ||
+                errorMessage.includes('Connection timed out') ||
+                errorMessage.includes('SSL certificate') ||
+                errorMessage.includes('authentication') ||
+                errorMessage.includes('permission denied') ||
+                errorMessage.includes('remote: Repository not found') ||
+                errorMessage.includes('remote: Invalid username or password');
+            
+            // Если это не retryable ошибка или последняя попытка, выбрасываем ошибку
+            if (!isRetryableError || attempt === config.maxAttempts) {
+                throw error;
+            }
+            
+            // Вычисляем задержку с экспоненциальным backoff
+            const delay = Math.min(
+                config.baseDelay * Math.pow(config.backoffMultiplier, attempt - 1),
+                config.maxDelay
+            );
+            
+            console.log(`Попытка ${attempt}/${config.maxAttempts} для ${operationName} не удалась: ${errorMessage}`);
+            console.log(`Повторная попытка через ${delay}ms...`);
+            
+            // Ждем перед следующей попыткой
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    
+    throw lastError!;
+}
+
 export interface Rule {
     name: string;
     path: string;
@@ -32,13 +93,40 @@ export interface SyncStats {
     total: number;
 }
 
+export interface FirstSyncInfo {
+    isFirstSync: boolean;
+    hasLocalRules: boolean;
+    hasRemoteRules: boolean;
+    localRulesCount: number;
+    remoteRulesCount: number;
+    conflicts: string[];
+}
+
+export interface SafeSyncOptions {
+    backupLocalRules: boolean;
+    mergeStrategy: 'local-first' | 'remote-first' | 'manual';
+    createBackup: boolean;
+}
+
 export class RulesManager {
     public config: Config;
     public gitignoreManager: GitignoreManager;
+    private retryConfig: RetryConfig;
 
     constructor() {
         this.config = this.getDefaultConfig();
         this.gitignoreManager = new GitignoreManager();
+        this.retryConfig = this.getRetryConfig();
+    }
+
+    private getRetryConfig(): RetryConfig {
+        const workspaceConfig = vscode.workspace.getConfiguration('cursorRulesManager');
+        return {
+            maxAttempts: workspaceConfig.get<number>('retryMaxAttempts', 3),
+            baseDelay: workspaceConfig.get<number>('retryBaseDelay', 1000),
+            maxDelay: workspaceConfig.get<number>('retryMaxDelay', 10000),
+            backoffMultiplier: workspaceConfig.get<number>('retryBackoffMultiplier', 2)
+        };
     }
 
     private getSimpleGit(): SimpleGit {
@@ -264,23 +352,16 @@ export class RulesManager {
             const tempDir = this.getTempDir();
             console.log('Временная папка:', tempDir);
             
-            // Клонируем репозиторий
+            // Клонируем репозиторий с retry
             console.log('Клонирую репозиторий...');
-            try {
-                await git.clone(this.config.rulesRepoUrl, tempDir);
-                console.log('Репозиторий склонирован');
-            } catch (cloneError) {
-                console.error('Ошибка клонирования репозитория:', cloneError);
-                throw new Error(`Не удалось подключиться к репозиторию ${this.config.rulesRepoUrl}. 
-                
-Возможные причины:
-- Неверный URL репозитория
-- Репозиторий недоступен или приватный
-- Проблемы с сетевым подключением
-- Не настроена авторизация Git
-
-Проверьте настройки и повторите попытку.`);
-            }
+            await withRetry(
+                async () => {
+            await git.clone(this.config.rulesRepoUrl, tempDir);
+            console.log('Репозиторий склонирован');
+                },
+                this.retryConfig,
+                'клонирование репозитория'
+            );
             
             const repoRulesPath = path.join(tempDir, this.config.globalRulesPath);
             console.log('Путь к правилам в репозитории:', repoRulesPath);
@@ -399,8 +480,8 @@ export class RulesManager {
                 
                 console.log('Отправляю изменения в GitHub...');
                 try {
-                    await git.push();
-                    console.log('Изменения отправлены в GitHub');
+                await git.push();
+                console.log('Изменения отправлены в GitHub');
                 } catch (pushError) {
                     console.error('Ошибка при отправке изменений:', pushError);
                     const errorMessage = String(pushError);
@@ -453,7 +534,7 @@ export class RulesManager {
         }
     }
 
-    public async pullRules(workspaceRoot: string): Promise<void> {
+    public async pullRules(workspaceRoot: string): Promise<SyncStats> {
         try {
             console.log('Начинаю загрузку правил из GitHub...');
             
@@ -469,9 +550,19 @@ export class RulesManager {
             
             const git = this.getSimpleGit();
             const tempDir = this.getTempDir();
+            // Клонируем репозиторий с retry
+            await withRetry(
+                async () => {
             await git.clone(this.config.rulesRepoUrl, tempDir);
+                    console.log('Репозиторий склонирован');
+                },
+                this.retryConfig,
+                'клонирование репозитория (pullRules)'
+            );
             const repoRulesPath = path.join(tempDir, this.config.globalRulesPath);
             const globalRulesPath = path.join(workspaceRoot, this.config.globalRulesPath);
+            
+            let added = 0, modified = 0, deleted = 0;
             
             if (fs.existsSync(repoRulesPath)) {
                 // Создаем папку для правил если её нет
@@ -493,8 +584,10 @@ export class RulesManager {
                     
                     if (item.isDirectory()) {
                         await this.copyDirectory(sourcePath, destPath);
+                        added++;
                     } else {
                         await this.copyFile(sourcePath, destPath);
+                        added++;
                     }
                 }
             }
@@ -506,6 +599,16 @@ export class RulesManager {
                     console.error('Ошибка удаления временной папки:', e);
                 }
             }, 1500);
+            
+            const stats: SyncStats = {
+                added,
+                modified,
+                deleted,
+                total: added + modified + deleted
+            };
+            
+            console.log('Загрузка правил завершена успешно', stats);
+            return stats;
         } catch (error) {
             throw new Error(`Ошибка загрузки правил: ${error}`);
         }
@@ -533,11 +636,15 @@ export class RulesManager {
             const tempDir = this.getTempDir();
             console.log('Временная папка:', tempDir);
             
-            // Клонируем репозиторий
-            console.log('Клонирую репозиторий...');
+            // Клонируем репозиторий с retry
+            await withRetry(
+                async () => {
             await git.clone(this.config.rulesRepoUrl, tempDir);
             console.log('Репозиторий склонирован');
-            
+                },
+                this.retryConfig,
+                'клонирование репозитория (pushRules)'
+            );
             const repoRulesPath = path.join(tempDir, this.config.globalRulesPath);
             console.log('Путь к правилам в репозитории:', repoRulesPath);
             
@@ -556,7 +663,6 @@ export class RulesManager {
                     for (const item of items) {
                         const abs = path.join(dir, item.name);
                         const relPath = path.join(rel, item.name);
-                        // Используем GitignoreManager для проверки исключений
                         const fullPath = path.join(basePath, relPath);
                         const relativeToWorkspace = path.relative(workspaceRoot, fullPath);
                         if (item.isDirectory()) {
@@ -643,43 +749,31 @@ export class RulesManager {
                 await git.commit(commitMessage);
                 console.log('Изменения закоммичены');
                 
-                // Сначала пытаемся получить последние изменения с сервера
+                // pull с retry
                 console.log('Получаю последние изменения с сервера...');
                 try {
-                    await git.pull();
-                    console.log('Изменения получены с сервера');
+                    await withRetry(
+                        async () => {
+                            await git.pull();
+                            console.log('Изменения получены с сервера');
+                        },
+                        this.retryConfig,
+                        'получение изменений с сервера (pushRules)'
+                    );
                 } catch (pullError) {
                     console.log('Ошибка при получении изменений с сервера:', pullError);
-                    // Если pull не удался, продолжаем с push
                 }
                 
+                // push с retry
                 console.log('Отправляю изменения в GitHub...');
-                try {
-                    await git.push();
-                    console.log('Изменения отправлены в GitHub');
-                } catch (pushError) {
-                    console.error('Ошибка при отправке изменений:', pushError);
-                    const errorMessage = String(pushError);
-                    
-                    if (errorMessage.includes('fetch first') || errorMessage.includes('rejected')) {
-                        throw new Error(`Конфликт при синхронизации: в удалённом репозитории есть изменения, которых нет локально. 
-                        
-Для решения:
-1. Выполните команду "Загрузить правила из GitHub" для получения последних изменений
-2. Затем повторите синхронизацию
-
-Или выполните команду "Синхронизировать правила Cursor" для автоматического разрешения конфликтов.`);
-                    } else {
-                        throw new Error(`Ошибка отправки в GitHub: ${errorMessage}. 
-                        
-Возможные причины:
-- Нет прав на запись в репозиторий
-- Проблемы с сетевым подключением
-- Репозиторий недоступен
-
-Проверьте настройки доступа к репозиторию и повторите попытку.`);
-                    }
-                }
+                await withRetry(
+                    async () => {
+                await git.push();
+                console.log('Изменения отправлены в GitHub');
+                    },
+                    this.retryConfig,
+                    'отправка изменений в GitHub (pushRules)'
+                );
             } else {
                 console.log('Нет изменений для коммита');
             }
@@ -735,5 +829,154 @@ export class RulesManager {
         } catch (error) {
             return `Ошибка получения статуса: ${error}`;
         }
+    }
+
+    /**
+     * Проверяет статус первой синхронизации и определяет стратегию
+     */
+    public async checkFirstSyncStatus(workspaceRoot: string): Promise<FirstSyncInfo> {
+        const localRulesPath = path.join(workspaceRoot, this.config.globalRulesPath);
+        const hasLocalRules = fs.existsSync(localRulesPath) && 
+            fs.readdirSync(localRulesPath, { withFileTypes: true }).length > 0;
+        
+        const localRulesCount = hasLocalRules ? 
+            this.getFilesInDirectory(localRulesPath).length : 0;
+
+        let hasRemoteRules = false;
+        let remoteRulesCount = 0;
+        let conflicts: string[] = [];
+
+        try {
+            const tempDir = this.getTempDir();
+            const git = this.getSimpleGit();
+            
+            // Клонируем репозиторий с retry
+            await withRetry(
+                async () => {
+                    await git.clone(this.config.rulesRepoUrl, tempDir);
+                },
+                this.retryConfig,
+                'клонирование репозитория (checkFirstSyncStatus)'
+            );
+            
+            const remoteRulesPath = path.join(tempDir, this.config.globalRulesPath);
+            hasRemoteRules = fs.existsSync(remoteRulesPath) && 
+                fs.readdirSync(remoteRulesPath, { withFileTypes: true }).length > 0;
+            
+            if (hasRemoteRules) {
+                remoteRulesCount = this.getFilesInDirectory(remoteRulesPath).length;
+                
+                // Проверяем конфликты имен файлов
+                if (hasLocalRules) {
+                    const localFiles = this.getFilesInDirectory(localRulesPath);
+                    const remoteFiles = this.getFilesInDirectory(remoteRulesPath);
+                    
+                    const localNames = localFiles.map(f => path.basename(f));
+                    const remoteNames = remoteFiles.map(f => path.basename(f));
+                    
+                    conflicts = localNames.filter(name => remoteNames.includes(name));
+                }
+            }
+            
+            // Удаляем временную папку
+            setTimeout(() => {
+                try {
+                    fs.rmSync(tempDir, { recursive: true, force: true });
+                } catch (e) {
+                    console.error('Ошибка удаления временной папки:', e);
+                }
+            }, 1000);
+            
+        } catch (error) {
+            console.log('Не удалось проверить удаленный репозиторий:', error);
+        }
+
+        const isFirstSync = !hasLocalRules && !hasRemoteRules;
+
+        return {
+            isFirstSync,
+            hasLocalRules,
+            hasRemoteRules,
+            localRulesCount,
+            remoteRulesCount,
+            conflicts
+        };
+    }
+
+    /**
+     * Создает резервную копию локальных правил
+     */
+    private async createLocalRulesBackup(workspaceRoot: string): Promise<string> {
+        const localRulesPath = path.join(workspaceRoot, this.config.globalRulesPath);
+        const backupDir = path.join(workspaceRoot, '.cursor', 'rules-backup');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(backupDir, `backup-${timestamp}`);
+        
+        if (fs.existsSync(localRulesPath)) {
+            fs.mkdirSync(backupPath, { recursive: true });
+            await this.copyDirectory(localRulesPath, backupPath);
+            console.log(`Создана резервная копия локальных правил: ${backupPath}`);
+        }
+        
+        return backupPath;
+    }
+
+    /**
+     * Безопасная первая синхронизация с выбором стратегии
+     */
+    public async safeFirstSync(workspaceRoot: string, options: SafeSyncOptions): Promise<SyncStats> {
+        const syncInfo = await this.checkFirstSyncStatus(workspaceRoot);
+        
+        console.log('Статус первой синхронизации:', syncInfo);
+        
+        // Создаем резервную копию если нужно
+        if (options.createBackup && syncInfo.hasLocalRules) {
+            await this.createLocalRulesBackup(workspaceRoot);
+        }
+        
+        if (syncInfo.isFirstSync) {
+            // Первая синхронизация - просто создаем структуру
+            console.log('Первая синхронизация - создаю структуру папок');
+            const localRulesPath = path.join(workspaceRoot, this.config.globalRulesPath);
+            if (!fs.existsSync(localRulesPath)) {
+                fs.mkdirSync(localRulesPath, { recursive: true });
+            }
+            return { added: 0, modified: 0, deleted: 0, total: 0 };
+        }
+        
+        if (syncInfo.hasLocalRules && syncInfo.hasRemoteRules) {
+            // Есть и локальные и удаленные правила - нужна стратегия слияния
+            if (options.mergeStrategy === 'local-first') {
+                console.log('Стратегия: локальные правила имеют приоритет');
+                return await this.syncRules(workspaceRoot); // Отправляем локальные в репозиторий
+            } else if (options.mergeStrategy === 'remote-first') {
+                console.log('Стратегия: удаленные правила имеют приоритет');
+                return await this.pullRules(workspaceRoot); // Загружаем удаленные
+            } else {
+                // manual - показываем пользователю конфликты
+                throw new Error(`Обнаружены конфликты имен файлов: ${syncInfo.conflicts.join(', ')}. 
+                
+Выберите стратегию синхронизации:
+1. "Локальные правила имеют приоритет" - ваши локальные правила перезапишут удаленные
+2. "Удаленные правила имеют приоритет" - удаленные правила перезапишут ваши локальные
+3. "Ручное разрешение" - разрешите конфликты вручную
+
+Рекомендуется сначала создать резервную копию локальных правил.`);
+            }
+        }
+        
+        if (syncInfo.hasLocalRules && !syncInfo.hasRemoteRules) {
+            // Только локальные правила - отправляем в репозиторий
+            console.log('Отправляю локальные правила в репозиторий');
+            return await this.syncRules(workspaceRoot);
+        }
+        
+        if (!syncInfo.hasLocalRules && syncInfo.hasRemoteRules) {
+            // Только удаленные правила - загружаем
+            console.log('Загружаю правила из репозитория');
+            return await this.pullRules(workspaceRoot);
+        }
+        
+        return { added: 0, modified: 0, deleted: 0, total: 0 };
     }
 } 
