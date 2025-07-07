@@ -60,11 +60,14 @@ export class RulesManager {
 
     private getDefaultConfig(): Config {
         const workspaceConfig = vscode.workspace.getConfiguration('cursorRulesManager');
-        return {
+        const config = {
             rulesRepoUrl: workspaceConfig.get('rulesRepoUrl', ''),
             globalRulesPath: workspaceConfig.get('globalRulesPath', '.cursor/rules'),
             excludePatterns: workspaceConfig.get('excludePatterns', ['my-project'])
         };
+        
+        console.log('Загруженная конфигурация:', config);
+        return config;
     }
 
     public validateConfig(config: Config): { isValid: boolean; error?: string } {
