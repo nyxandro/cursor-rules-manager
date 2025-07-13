@@ -277,54 +277,208 @@ alwaysApply: true
 
 ## Разработка
 
+### Требования для разработки
+
+- **Node.js 18+** (рекомендуется последняя LTS версия)
+- **npm 9+** или **yarn**
+- **Git**
+- **Cursor AI** или **Visual Studio Code**
+
+### Настройка окружения
+
+#### 1. Клонирование репозитория
 ```bash
-# Установка зависимостей
+git clone https://github.com/nyxandro/cursor-rules-manager.git
+cd cursor-rules-manager
+```
+
+#### 2. Установка зависимостей
+```bash
 npm install
+```
+
+**Примечание:** Все необходимые зависимости (включая TypeScript, ESLint, VSCE) уже включены в `package.json` как devDependencies. Это обеспечивает:
+- Совместимость версий для всех разработчиков
+- Работу в Docker и CI/CD без дополнительной настройки
+- Возможность сборки расширения сразу после клонирования
+
+#### 3. Проверка установки
+```bash
+# Проверка версий
+node --version
+npm --version
+npx tsc --version
+npx eslint --version
+npx vsce --version
 
 # Компиляция
 npm run compile
 
 # Запуск тестов
 npm test
+```
 
-# Линтинг
+### Команды разработки
+
+```bash
+# Установка зависимостей
+npm install
+
+# Компиляция TypeScript
+npm run compile
+
+# Запуск тестов
+npm test
+
+# Линтинг кода
 npm run lint
 
-# Сборка расширения
+# Сборка расширения (.vsix файл)
 npm run package
 
-# Очистка
+# Очистка временных файлов
 npm run clean
 
 # Разработка с автопересборкой
 npm run dev
 
 # Обновление версии и сборка
-npm run version:patch  # для patch версии
-npm run version:minor  # для minor версии
-npm run version:major  # для major версии
+npm run version:patch  # для patch версии (1.2.2 → 1.2.3)
+npm run version:minor  # для minor версии (1.2.2 → 1.3.0)
+npm run version:major  # для major версии (1.2.2 → 2.0.0)
 ```
 
 ### Отладка
 
 1. Откройте проект в Cursor/VSCode
-2. Нажмите F5 для запуска в режиме отладки
+2. Нажмите **F5** для запуска в режиме отладки
 3. Откроется новое окно Cursor/VSCode с расширением
 4. Используйте команды в палитре команд (Ctrl+Shift+P)
 
 ### Структура проекта
 
 ```
-src/
-├── extension.ts          # Основной файл расширения
-├── rulesManager.ts       # Логика управления правилами
-├── gitignoreManager.ts   # Управление .gitignore файлом
-└── test/
-    ├── extension.test.ts # Тесты расширения
-    ├── gitignore.test.ts # Тесты GitignoreManager
-    ├── runTest.ts        # Запуск тестов
-    └── suite/
-        └── index.ts      # Конфигурация тестов
+cursor-rules-manager/
+├── src/                    # Исходный код TypeScript
+│   ├── extension.ts        # Основной файл расширения
+│   ├── rulesManager.ts     # Логика управления правилами
+│   ├── gitignoreManager.ts # Управление .gitignore файлом
+│   └── test/               # Тесты
+│       ├── extension.test.ts
+│       ├── gitignore.test.ts
+│       ├── runTest.ts
+│       └── suite/
+│           └── index.ts
+├── out/                    # Скомпилированный JavaScript
+├── resources/              # Ресурсы расширения
+│   └── icon.png
+├── releases/               # Готовые .vsix файлы
+├── .github/                # GitHub Actions
+├── package.json            # Зависимости и скрипты
+├── tsconfig.json           # Конфигурация TypeScript
+├── .eslintrc.json          # Конфигурация ESLint
+└── README.md               # Документация
+```
+
+### Публикация новой версии
+
+1. **Обновите версию и соберите расширение:**
+   ```bash
+   npm run version:patch  # или minor/major
+   ```
+
+2. **Проверьте, что файл создался в releases/:**
+   ```bash
+   ls releases/
+   ```
+
+3. **Создайте GitHub Release:**
+   - Перейдите в GitHub → Releases → Create a new release
+   - Укажите тег версии (например, v1.2.3)
+   - Загрузите .vsix файл из папки releases/
+   - Добавьте описание изменений
+
+4. **Обновите ссылку в README.md:**
+   - Измените ссылку на скачивание в разделе "Скачать расширение"
+   - Обновите версию в заголовке
+
+### Советы для разработчиков
+
+#### Локальная разработка vs Глобальные инструменты
+
+**Для этого проекта рекомендуется использовать локальные зависимости:**
+
+✅ **Хорошо:**
+- Все инструменты в `package.json` как devDependencies
+- `npm install` устанавливает всё необходимое
+- Работает одинаково на всех машинах
+- Docker и CI/CD работают без настройки
+
+❌ **Не рекомендуется:**
+- Глобальная установка TypeScript, ESLint, VSCE
+- Зависимость от глобальных версий
+- Разные версии на разных машинах
+
+#### Работа с Git
+
+```bash
+# Создание новой ветки для фичи
+git checkout -b feature/new-feature
+
+# Коммит изменений
+git add .
+git commit -m "feat: add new feature"
+
+# Пуш в репозиторий
+git push origin feature/new-feature
+
+# Создание Pull Request
+# Перейдите в GitHub и создайте PR из feature ветки в main
+```
+
+#### Тестирование
+
+```bash
+# Запуск всех тестов
+npm test
+
+# Запуск только unit тестов
+npm run test:unit
+
+# Запуск с покрытием (если настроено)
+npm run test:coverage
+```
+
+### Troubleshooting
+
+#### Проблемы с зависимостями
+```bash
+# Очистка и переустановка
+rm -rf node_modules package-lock.json
+npm install
+```
+
+#### Проблемы с компиляцией
+```bash
+# Очистка и перекомпиляция
+npm run clean
+npm run compile
+```
+
+#### Проблемы с тестами
+```bash
+# Проверка конфигурации тестов
+npm run pretest
+```
+
+#### Проблемы с VSCE
+```bash
+# Проверка версии VSCE
+npx vsce --version
+
+# Принудительная переустановка
+npm uninstall vsce
+npm install vsce --save-dev
 ```
 
 ## Требования

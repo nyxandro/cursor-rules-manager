@@ -117,7 +117,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "lint": "npx eslint@8.57.1 src --ext ts",
     "test": "node ./out/test/runTest.js",
     "test:unit": "mocha out/test/extension.test.js",
     "build": "npm run compile && npm run lint && npm test",
@@ -137,14 +137,14 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/test-electron": "^2.3.8",
-    "eslint": "^8.0.0",
+    "eslint": "^8.57.1",
     "glob": "^10.3.10",
     "mocha": "^10.2.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vsce": "^2.15.0"
   },
   "dependencies": {
     "simple-git": "^3.20.0",
     "which": "^5.0.0"
   }
 }
- 
